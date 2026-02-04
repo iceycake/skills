@@ -56,22 +56,29 @@ Creates `YYYY-MM-DD-HH-MM-SS-video-clip.md` with:
 
 ```bash
 # Basic usage
-./video_clipper.py "https://youtube.com/watch?v=xxx" ~/Obsidian/Clips/
+python3 video_clipper.py "https://youtube.com/watch?v=xxx" ~/Obsidian/Clips/
 
-# With larger model for better accuracy
-./video_clipper.py "https://tiktok.com/@user/video/123" ~/Obsidian/Clips/ --model medium
+# With larger model for better accuracy (download model first)
+python3 video_clipper.py "https://tiktok.com/@user/video/123" ~/Obsidian/Clips/ --model medium
 
 # Keep audio file
-./video_clipper.py "https://instagram.com/reel/xxx" ~/Obsidian/Clips/ --keep-audio
+python3 video_clipper.py "https://instagram.com/reel/xxx" ~/Obsidian/Clips/ --keep-audio
 ```
 
 ## Setup
 
+Install dependencies via Homebrew (no Python packages required):
+
 ```bash
-cd video-clipper
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
+brew install yt-dlp ffmpeg whisper-cpp
 ```
 
-Requires `ffmpeg` for audio extraction (`brew install ffmpeg`).
+Download a Whisper model (one-time):
+
+```bash
+mkdir -p ~/.cache/whisper-cpp
+curl -L -o ~/.cache/whisper-cpp/ggml-base.bin \
+  https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin
+```
+
+Available models: `tiny`, `base`, `small`, `medium`, `large` (larger = more accurate but slower).

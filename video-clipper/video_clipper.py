@@ -1,21 +1,19 @@
-#!/Users/achan/Projects/com/github/iceycake/skills/video-clipper/venv/bin/python
 """
 Video Clipper - Download and transcribe videos from TikTok, YouTube, or Instagram Reels.
 Creates an Obsidian note with metadata, summary, and full transcript.
 """
 
 import argparse
+import json
 import os
 import re
 import shutil
+import subprocess
 import sys
 import tempfile
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlparse
-
-import yt_dlp
-import whisper
 
 
 def detect_platform(url: str) -> str:
@@ -38,47 +36,105 @@ def detect_platform(url: str) -> str:
 
 def download_video(url: str, output_dir: str) -> tuple[str, dict]:
     """Download video and return path to audio file and video metadata."""
-    ydl_opts = {
-        "format": "bestaudio/best",
-        "outtmpl": os.path.join(output_dir, "%(id)s.%(ext)s"),
-        "postprocessors": [
-            {
-                "key": "FFmpegExtractAudio",
-                "preferredcodec": "mp3",
-                "preferredquality": "192",
-            }
-        ],
-        "quiet": True,
-        "no_warnings": True,
+    output_template = os.path.join(output_dir, "%(id)s.%(ext)s")
+
+    # Use yt-dlp CLI to download and extract audio
+    cmd = [
+        "yt-dlp",
+        "-x",  # Extract audio
+        "--audio-format", "mp3",
+        "--audio-quality", "192K",
+        "-o", output_template,
+        "--print-json",  # Output JSON metadata
+        "--no-warnings",
+        "--quiet",
+        url,
+    ]
+
+    result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+
+    # Parse JSON output to get metadata
+    info = json.loads(result.stdout)
+    video_id = info.get("id", "video")
+    audio_path = os.path.join(output_dir, f"{video_id}.mp3")
+
+    metadata = {
+        "title": info.get("title", "Untitled"),
+        "uploader": info.get("uploader", "Unknown"),
+        "upload_date": info.get("upload_date", ""),
+        "duration": info.get("duration", 0),
+        "description": info.get("description", ""),
+        "view_count": info.get("view_count", 0),
+        "like_count": info.get("like_count", 0),
     }
 
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(url, download=True)
-        video_id = info.get("id", "video")
-        audio_path = os.path.join(output_dir, f"{video_id}.mp3")
-
-        metadata = {
-            "title": info.get("title", "Untitled"),
-            "uploader": info.get("uploader", "Unknown"),
-            "upload_date": info.get("upload_date", ""),
-            "duration": info.get("duration", 0),
-            "description": info.get("description", ""),
-            "view_count": info.get("view_count", 0),
-            "like_count": info.get("like_count", 0),
-        }
-
-        return audio_path, metadata
+    return audio_path, metadata
 
 
 def transcribe_audio(audio_path: str, model_name: str = "base") -> str:
-    """Transcribe audio file using Whisper."""
-    print(f"Loading Whisper model '{model_name}'...")
-    model = whisper.load_model(model_name)
+    """Transcribe audio file using whisper-cpp CLI."""
+    # whisper-cpp requires WAV format, convert MP3 to WAV first
+    wav_path = audio_path.rsplit(".", 1)[0] + ".wav"
 
-    print("Transcribing audio...")
-    result = model.transcribe(audio_path)
+    print("Converting audio to WAV format...")
+    convert_cmd = [
+        "ffmpeg",
+        "-i", audio_path,
+        "-ar", "16000",  # whisper-cpp expects 16kHz
+        "-ac", "1",  # mono
+        "-y",  # overwrite
+        wav_path,
+    ]
+    subprocess.run(convert_cmd, capture_output=True, check=True)
 
-    return result["text"].strip()
+    # Find model path - check common locations
+    model_file = f"ggml-{model_name}.bin"
+    model_paths = [
+        Path.home() / ".cache" / "whisper-cpp" / model_file,
+        Path.home() / ".local" / "share" / "whisper-cpp" / model_file,
+        Path("/usr/local/share/whisper-cpp") / model_file,
+        Path("/opt/homebrew/share/whisper-cpp") / model_file,
+    ]
+
+    model_path = None
+    for path in model_paths:
+        if path.exists():
+            model_path = path
+            break
+
+    if not model_path:
+        # Try to download the model using whisper-cpp's download script if available
+        raise FileNotFoundError(
+            f"Whisper model '{model_name}' not found. Please download it:\n"
+            f"  curl -L -o ~/.cache/whisper-cpp/{model_file} "
+            f"https://huggingface.co/ggerganov/whisper.cpp/resolve/main/{model_file}"
+        )
+
+    print(f"Transcribing audio with whisper-cpp (model: {model_name})...")
+    cmd = [
+        "whisper-cpp",
+        "-m", str(model_path),
+        "-f", wav_path,
+        "--no-timestamps",
+        "-otxt",  # output as text
+    ]
+
+    result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+
+    # whisper-cpp outputs to stdout or creates a .txt file
+    # Check if output file was created
+    txt_path = wav_path + ".txt"
+    if os.path.exists(txt_path):
+        with open(txt_path, "r") as f:
+            transcript = f.read().strip()
+        os.remove(txt_path)  # cleanup
+    else:
+        transcript = result.stdout.strip()
+
+    # Cleanup WAV file
+    os.remove(wav_path)
+
+    return transcript
 
 
 def generate_summary(transcript: str, max_sentences: int = 2) -> str:
