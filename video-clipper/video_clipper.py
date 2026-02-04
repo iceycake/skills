@@ -51,7 +51,9 @@ def download_video(url: str, output_dir: str) -> tuple[str, dict]:
         url,
     ]
 
-    result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(f"yt-dlp failed: {result.stderr or result.stdout}")
 
     # Parse JSON output to get metadata
     info = json.loads(result.stdout)
@@ -72,21 +74,7 @@ def download_video(url: str, output_dir: str) -> tuple[str, dict]:
 
 
 def transcribe_audio(audio_path: str, model_name: str = "base") -> str:
-    """Transcribe audio file using whisper-cpp CLI."""
-    # whisper-cpp requires WAV format, convert MP3 to WAV first
-    wav_path = audio_path.rsplit(".", 1)[0] + ".wav"
-
-    print("Converting audio to WAV format...")
-    convert_cmd = [
-        "ffmpeg",
-        "-i", audio_path,
-        "-ar", "16000",  # whisper-cpp expects 16kHz
-        "-ac", "1",  # mono
-        "-y",  # overwrite
-        wav_path,
-    ]
-    subprocess.run(convert_cmd, capture_output=True, check=True)
-
+    """Transcribe audio file using whisper-cli."""
     # Find model path - check common locations
     model_file = f"ggml-{model_name}.bin"
     model_paths = [
@@ -103,36 +91,39 @@ def transcribe_audio(audio_path: str, model_name: str = "base") -> str:
             break
 
     if not model_path:
-        # Try to download the model using whisper-cpp's download script if available
         raise FileNotFoundError(
             f"Whisper model '{model_name}' not found. Please download it:\n"
             f"  curl -L -o ~/.cache/whisper-cpp/{model_file} "
             f"https://huggingface.co/ggerganov/whisper.cpp/resolve/main/{model_file}"
         )
 
-    print(f"Transcribing audio with whisper-cpp (model: {model_name})...")
+    print(f"Transcribing audio with whisper-cli (model: {model_name})...")
+
+    # Output file path (without extension, whisper-cli adds .txt)
+    output_base = audio_path.rsplit(".", 1)[0]
+
     cmd = [
-        "whisper-cpp",
+        "whisper-cli",
         "-m", str(model_path),
-        "-f", wav_path,
+        "-f", audio_path,
         "--no-timestamps",
-        "-otxt",  # output as text
+        "--output-txt",
+        "--output-file", output_base,
     ]
 
-    result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(f"whisper-cli failed: {result.stderr or result.stdout}")
 
-    # whisper-cpp outputs to stdout or creates a .txt file
-    # Check if output file was created
-    txt_path = wav_path + ".txt"
+    # Read the output text file
+    txt_path = output_base + ".txt"
     if os.path.exists(txt_path):
         with open(txt_path, "r") as f:
             transcript = f.read().strip()
         os.remove(txt_path)  # cleanup
     else:
+        # Fallback to stdout if no file created
         transcript = result.stdout.strip()
-
-    # Cleanup WAV file
-    os.remove(wav_path)
 
     return transcript
 
