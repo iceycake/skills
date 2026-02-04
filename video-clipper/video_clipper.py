@@ -229,9 +229,9 @@ def main():
     )
     parser.add_argument(
         "--model",
-        default="base",
+        default="tiny",
         choices=["tiny", "base", "small", "medium", "large"],
-        help="Whisper model size (default: base)",
+        help="Whisper model size (default: tiny)",
     )
     parser.add_argument(
         "--keep-audio",

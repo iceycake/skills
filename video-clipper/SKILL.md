@@ -13,7 +13,7 @@ args:
     required: true
   - name: --model
     description: "Whisper model size: tiny, base, small, medium, large"
-    default: base
+    default: tiny
   - name: --keep-audio
     description: Keep the downloaded audio file alongside the note
     default: false
@@ -77,8 +77,8 @@ Download a Whisper model (one-time):
 
 ```bash
 mkdir -p ~/.cache/whisper-cpp
-curl -L -o ~/.cache/whisper-cpp/ggml-base.bin \
-  https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin
+curl -L -o ~/.cache/whisper-cpp/ggml-tiny.bin \
+  https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin
 ```
 
-Available models: `tiny`, `base`, `small`, `medium`, `large` (larger = more accurate but slower).
+Available models: `tiny` (default, ~75MB), `base` (~142MB), `small` (~466MB), `medium` (~1.5GB), `large` (~2.9GB).
