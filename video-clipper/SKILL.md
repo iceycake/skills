@@ -1,42 +1,39 @@
 ---
 name: video-clipper
 description: Download and transcribe videos from TikTok, YouTube, or Instagram Reels to Obsidian notes
-version: 1.0.0
-author: iceycake
-invoke: ./video_clipper.py
-args:
-  - name: url
-    description: URL of the video (YouTube, TikTok, or Instagram Reel)
-    required: true
-  - name: output_directory
-    description: Directory to save the Obsidian note
-    required: true
-  - name: --model
-    description: "Whisper model size: tiny, base, small, medium, large"
-    default: tiny
-  - name: --keep-audio
-    description: Keep the downloaded audio file alongside the note
-    default: false
-tags:
-  - video
-  - transcription
-  - obsidian
-  - youtube
-  - tiktok
-  - instagram
 ---
 
-# video-clipper
+# Video Clipper
 
-Download and transcribe videos from TikTok, YouTube, or Instagram Reels, creating an Obsidian note with metadata and full transcript.
+Use this skill when the user wants to download and transcribe a video from YouTube, TikTok, or Instagram Reels.
 
-## When to Use
+## How to Use
 
-Use this skill when the user wants to:
-- Download and transcribe a video from YouTube, TikTok, or Instagram
-- Create an Obsidian note from a video
-- Get a transcript of a social media video
-- Save a video clip with notes
+Run the script from `{baseDir}`:
+
+```bash
+python3 {baseDir}/video_clipper.py "<video_url>" "<output_directory>" [options]
+```
+
+### Arguments
+
+- `video_url` (required): URL of the video (YouTube, TikTok, or Instagram Reel)
+- `output_directory` (required): Directory to save the Obsidian note
+- `--model`: Whisper model size: tiny (default), base, small, medium, large
+- `--keep-audio`: Keep the downloaded MP3 file alongside the note
+
+### Examples
+
+```bash
+# Basic usage
+python3 {baseDir}/video_clipper.py "https://youtube.com/watch?v=xxx" ~/Obsidian/Clips/
+
+# With larger model for better accuracy
+python3 {baseDir}/video_clipper.py "https://tiktok.com/@user/video/123" ~/notes/ --model base
+
+# Keep audio file
+python3 {baseDir}/video_clipper.py "https://instagram.com/reel/xxx" /tmp --keep-audio
+```
 
 ## Supported Platforms
 
@@ -49,36 +46,20 @@ Use this skill when the user wants to:
 Creates `YYYY-MM-DD-HH-MM-SS-video-clip.md` with:
 - YAML frontmatter (title, platform, creator, duration, source URL, tags)
 - Clickable link to original video
-- 1-2 sentence summary
+- Brief summary (first 1-2 sentences)
 - Full transcript
 
-## Examples
+## Dependencies
 
-```bash
-# Basic usage
-python3 video_clipper.py "https://youtube.com/watch?v=xxx" ~/Obsidian/Clips/
-
-# With larger model for better accuracy (download model first)
-python3 video_clipper.py "https://tiktok.com/@user/video/123" ~/Obsidian/Clips/ --model medium
-
-# Keep audio file
-python3 video_clipper.py "https://instagram.com/reel/xxx" ~/Obsidian/Clips/ --keep-audio
-```
-
-## Setup
-
-Install dependencies via Homebrew (no Python packages required):
+Requires these CLI tools (install via Homebrew or package manager):
 
 ```bash
 brew install yt-dlp ffmpeg whisper-cpp
 ```
 
-Download a Whisper model (one-time):
+Download the Whisper model (one-time):
 
 ```bash
 mkdir -p ~/.cache/whisper-cpp
-curl -L -o ~/.cache/whisper-cpp/ggml-tiny.bin \
-  https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin
+curl -L -o ~/.cache/whisper-cpp/ggml-tiny.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin
 ```
-
-Available models: `tiny` (default, ~75MB), `base` (~142MB), `small` (~466MB), `medium` (~1.5GB), `large` (~2.9GB).
