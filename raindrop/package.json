@@ -1,0 +1,12 @@
+{
+  "name": "raindrop",
+  "version": "1.0.0",
+  "description": "Raindrop.io CLI — save, search, tag, and organize bookmarks",
+  "bin": {
+    "raindrop": "./bin/raindrop.js"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  }
+}
